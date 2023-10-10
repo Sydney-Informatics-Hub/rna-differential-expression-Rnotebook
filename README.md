@@ -4,8 +4,6 @@ This R notebook can be used for differential expression and functional enrichmen
 
 This notebook requires a number of packages. You can execute it with our [RStudio for RNAseq container](https://github.com/Sydney-Informatics-Hub/Rstudio-rnaseq-contained) which has all required packages preinstalled. 
 
-If you have used this work for a publication, you must acknowledge SIH, e.g: "The authors acknowledge the technical assistance provided by the Sydney Informatics Hub, a Core Research Facility of the University of Sydney."
-
 # Quickstart
 
 1. Clone this repository: 
@@ -22,4 +20,4 @@ The Sydney Informatics Hub is an official node of the Australian BioCommons, and
 
 Acknowledgements (and co-authorship, where appropriate) are an important way for us to demonstrate the value we bring to your research. Your research outcomes are vital for ongoing funding of the Sydney Informatics Hub and national compute facilities. We suggest including the following acknowledgement in any publications that follow from this work:
 
-The authors acknowledge the technical assistance provided by the Sydney Informatics Hub, a Core Research Facility of the University of Sydney and the Australian BioCommons which is enabled by NCRIS via Bioplatforms Australia.
+"The authors acknowledge the technical assistance provided by the Sydney Informatics Hub, a Core Research Facility of the University of Sydney and the Australian BioCommons which is enabled by NCRIS via Bioplatforms Australia".
