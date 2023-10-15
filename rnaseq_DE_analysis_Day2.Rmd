@@ -18,7 +18,7 @@ __How to use this file:__
 - Click the green play arrows at the top right of each grey box, to run the chunk of R code within 
 - Challenge questions are enclosed in **double stars**. Feel free to add your own notes (Anywhere outside the grey boxes)
 - During the code-along sessions, we may ask you to type code into the Console. This will allow us to inspect our data without large outputs appearing in our .Rmd file
-- At the end of this workshop, you will be able to knit this document to HTML and save it for your own records
+- At the end of this workshop, you will be able to knit this document to HTML and save it for your records
 
 ## Start code excecution
 
