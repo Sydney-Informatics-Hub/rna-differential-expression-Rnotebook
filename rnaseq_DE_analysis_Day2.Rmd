@@ -65,15 +65,15 @@ counttable_raw <- read.delim("Full_count_matrix.txt",
                                 header = T, 
                                 row.names = 1)
 
-# Data format is very important to ensure that functions read and analyse data correctly! The loaded count matrix is not in the exact format as required by the functions used later in the analysis. So we perform the following steps
+# Data format is very important to ensure that functions read and analyse data correctly! The loaded count matrix is not in the exact format as required by the functions used later in the analysis. So we perform the following steps:
 
-# (A) Put gene symbol in the first column
+# 1. Put gene symbol in the first column
 counttable <- counttable_raw[,c("Symbol","WT1","WT2","WT3","KO1","KO2","KO3")]
 
-# (B) We don't need the Ensembl IDs (rownames) - get rid of the rownames
+# 2. We don't need the Ensembl IDs (rownames) - get rid of the rownames
 row.names(counttable) <- NULL
 
-# (C) Make the gene symbol column rownames instead
+# 3. Make the gene symbol column rownames instead
 rownames(counttable) <- counttable$Symbol
 counttable <- counttable[,c("WT1","WT2","WT3","KO1","KO2","KO3")]
 
@@ -83,10 +83,10 @@ counttable <- counttable[,c("WT1","WT2","WT3","KO1","KO2","KO3")]
 
 We now have our count matrix file (genes - rows, samples - columns) ready for analysis.
 
-
 ### Experimental design metadata
 
 DE requires some metadata that tells our R libraries about the experimental design of the study, so that it knows how to handle the data. In this analysis, we have two experimental groups, the wildtype ("Wild") and the knockout ("KO") groups.
+
 
 We will create and store this metadata in a specific format required by the R libraries that we will use later. The samples are in rows (sample IDs as rownames), and columns are the experimental groupings. You can have more than one column, but need a minimum of one that describes your experimental groups. 
 
@@ -101,11 +101,9 @@ meta <- data.frame(row.names = colnames(counttable), condition)
 #View(meta)
 ```
 
-
-
 ## Exploratory analysis
 
-Before performing any DE analysis, it is good to explore and visualize our data. This helps us to understand and get a sense of the quality of our data at this stage of the analysis.
+Before performing any DE analysis, it is good to explore and visualise our data. This helps us to understand and get a sense of the quality of our data at this stage of the analysis.
 
 **Work through the code and challenge questions. This will be followed by the presenter discussing the results**
 
