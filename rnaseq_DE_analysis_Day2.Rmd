@@ -50,19 +50,18 @@ library("ggnewscale")
 })
 ```
 
-
 ### Import the count matrix file
 
-The count matrix file contains raw (unnormalized) counts for every gene (rows, i) in mm10 and every sample (columns, j). The value in the i-th row and the j-th column of the matrix tells how many raw reads were assigned to gene i in sample j.
+The input count matrix file contains raw (not normalised) counts for every gene (rows, i) in the mouse reference assembly (mm10) and every sample (columns, j). The value in the i-th row and the j-th column of the matrix tells how many raw reads were assigned to gene i in sample j.
 
-We created a count matrix file with subsetted data in Part 1 of this workshop using nf-core/rnaseq (salmon.merged.gene_counts.tsv). In Part 2, we will use a count matrix file produced from the full dataset (including more descriptive sample identifiers!), in order to have enough data to perform functional enrichment analysis. 
+We created a count matrix file with subsetted data in Part 1 of this workshop using nf-core/rnaseq (`salmon.merged.gene_counts.tsv`). In Part 2, we will use a count matrix file produced from the full dataset (including more descriptive sample identifiers), in order to have enough data to perform functional enrichment analysis. 
 
 Load the count matrix file and format the data frame:
 
 ```{r}
 # Read in the full count matrix file
 # This file was included in the data we downloaded for Part 1
-counttable_raw <- read.delim("FULL_count_matrix.txt", 
+counttable_raw <- read.delim("Full_count_matrix.txt", 
                                 header = T, 
                                 row.names = 1)
 
