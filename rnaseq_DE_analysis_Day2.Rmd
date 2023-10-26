@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 ## Introduction
 
-The code in this `Rmarkdown (.Rmd)` document performs differential expression (DE) and enrichment analysis. It belongs to Part 2 of the workshop [Introduction to RNAseq workshop: reads to differential gene expression](https://sydney-informatics-hub.github.io/rnaseq-workshop-2023/). The code can be executed after processing raw sequencing reads to analysis ready raw counts, e.g. with nf-core/rnaseq as we did on Part 1 of this workshop.
+The code in this `Rmarkdown (.Rmd)` document performs differential expression (DE) and enrichment analysis. It was used in Part 2 of the workshop [Introduction to RNAseq workshop: reads to differential gene expression](https://sydney-informatics-hub.github.io/rnaseq-workshop-2023/). This code expects analysis ready raw counts as inputs. Raw counts can be generated using [nf-core/rnaseq](https://nf-co.re/rnaseq/3.12.0) as we did on Part 1 of the workshop.
 
 __How to use this file:__
 
