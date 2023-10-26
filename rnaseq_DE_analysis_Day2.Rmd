@@ -341,7 +341,7 @@ res
 
 From the above, we can see that DE was performed for KO vs Wild samples for 19,859 genes and 6 columns (6 samples). We then see a table of DE results. The column headers include:
 
-- __baseMean__: this is an average of the normalized count values, dividing by size factors, taken over all samples. This gives you a general idea of how many reads were detected over all samples present for any one gene.
+- __baseMean__: this is an average of the normalised count values, dividing by size factors, taken over all samples. This gives you a general idea of how many reads were detected over all samples present for any one gene.
 - __log2FoldChange__: This measures the magnitude of differential expression of a gene. A positive value indicates that the KO expression was higher than Wild (remember the fuss about setting factor levels?). This number is on the logarithmic scale to base 2, e.g. log2 fold change of 1.5 means that the gene's expression is increased by 2^1.5 = 2.82 times. 
 - __lfcSE__: this is the standard error of the log2FoldChange estimate
 - __stat__: Wald statistic
@@ -387,10 +387,10 @@ summary(res_padj0.05)
 Normalised count data can be used for visualisation/other analyses. The code below extracts and prints normalized counts to file.
 
 ```{r}
-# Extract normalized counts from dds
+# Extract normalised counts from dds
 normalised_counts <- counts(dds, normalized = TRUE)
 
-# Save normalized counts (tab separated) to file
+# Save normalised counts (tab separated) to file
 write.table(normalised_counts, 
             "normalised_all_samples_DeSeq2_FullMatrix.tab", 
             sep = "\t", 
@@ -430,14 +430,14 @@ We have applied low read-count filtering followed by appropriate statistical tes
 
 However we recommend that you visualise a few genes (of specific interest or otherwise) to check if the identification of these genes is supported by sufficient read-counts. 
 
-Use plotCounts function to plot normalized counts for a single gene of interest. Here we plot 
+Use plotCounts function to plot normalised counts for a single gene of interest. Here we plot 
 ```{r}
 plotCounts(dds, 
            gene="Dip2b", 
            intgroup="condition")
 ```
 
-**Choose a significant gene that is downregulated in the knockout mice. Enter the plotCounts code in the grey box below to plot the normalized counts for each sample for the gene you have chosen.**
+**Choose a significant gene that is downregulated in the knockout mice. Enter the plotCounts code in the grey box below to plot the normalised counts for each sample for the gene you have chosen.**
 
 ### Diagnostic plots
 
@@ -445,7 +445,7 @@ Before we get too excited about our results, we need to confirm that DESeq2's as
 
 #### MA plot
 
-The MA plot provides an overview of the relationship between significantly differentially expressed genes, gene expression and log fold change in the form of a scatter plot. Each dot on the plot represents a single gene, significant genes are coloured as a blue dot. The average gene expression is on the x axis (expressed as a mean of normalized counts) and the log fold change is on the Y axis. 
+The MA plot provides an overview of the relationship between significantly differentially expressed genes, gene expression and log fold change in the form of a scatter plot. Each dot on the plot represents a single gene, significant genes are coloured as a blue dot. The average gene expression is on the x axis (expressed as a mean of normalised counts) and the log fold change is on the Y axis. 
 
 ```{r}
 # There is another R function called plotMA, so we need to specify to use DESeq2's plotMA
@@ -473,7 +473,7 @@ plotDispEsts(dds)
 
 There are a few things to note:
 
-- Dispersion is higher for genes with small mean of normalized counts, and lower for genes with high mean of normalized counts. If you see any other trend, this is a sign that you should not trust DESeq2's results and that you need to investigate further
+- Dispersion is higher for genes with small mean of normalized counts, and lower for genes with high mean of normalised counts. If you see any other trend, this is a sign that you should not trust DESeq2's results and that you need to investigate further
 - To transform the data, we need to use the variation observed within each experimental group. We cannot do this accurately with few biological replicates (e.g n =3 for KO, n = 3 for wildtype). DESeq2 assumes that genes with similar expression have a similar level of dispersion to get a more accurate estimation of variability - one of its many benefits! A model (the red curve) is calculated by DESeq2 with this information, using a method called shrinkage. In other words, the red line represents the expected dispersion for any given level of expression
 - The black dots represent each gene and their own dispersion (using within group variance as described above)
 - The gene-wise dispersion estimate (black dots) need to be shrunken towards the red line. This helps to reduce false positive results in our differential expression analysis
@@ -515,7 +515,7 @@ Enrichment analysis can be done using both-  freely available web-tools or R-bas
  
 ### Gene ontology (GO) enrichment
 
-One of the most widely-used categorizations is Gene Ontology (GO) established by the Gene Ontology project. To describe the functional roles of genes and gene products, they are categorized into GO terms. GO terms are organized into three independent controlled vocabularies (ontologies) in a species-independent manner:
+One of the most widely-used categories is Gene Ontology (GO) established by the Gene Ontology project. To describe the functional roles of genes and gene products, they are categorised into GO terms. GO terms are organised into three independent controlled vocabularies (ontologies) in a species-independent manner:
   - __Biological process__: Refers to the biological role involving the gene or gene product, and could include “transcription”, “signal transduction”, and “apoptosis”. A biological process generally involves a chemical or physical change of the starting material or input.
   - __Molecular function__: Represents the biochemical activity of the gene product, such activities could include “ligand”, “GTPase”, and “transporter”.
   - __Cellular component__: Refers to the location in the cell of the gene product. Cellular components could include “nucleus”, “lysosome”, and “plasma membrane”.
@@ -524,7 +524,7 @@ GO enrichment analysis tools will determine GO terms that are enriched when you 
 
 ### clusterProfiler R-package
 
-The clusterProfiler package implements methods to analyze and visualize functional profiles of genes. The clusterProfiler R-library supports functional characteristics of both coding and non-coding genomics data for thousands of species with up-to-date gene annotation. It provides a tidy interface to access, manipulate, and visualize enrichment results to help users achieve efficient data interpretation.
+The clusterProfiler package implements methods to analyse and visulised functional profiles of genes. The clusterProfiler R-library supports functional characteristics of both coding and non-coding genomics data for thousands of species with up-to-date gene annotation. It provides a tidy interface to access, manipulate, and visualise enrichment results to help users achieve efficient data interpretation.
 
 ### Prepare the DE gene results for enrichment analysis
 
@@ -582,7 +582,7 @@ ego.up <- enrichGO(gene = names(sig.up.LFC),
 
 #### Bar plot of upregulated enriched GO terms
 
-The bar plot is a commonly used method to visualize enriched terms. It depicts the enrichment scores (e.g. p-adj values) and gene count or ratio as bar height and colour.
+The bar plot is a commonly used method to visualise enriched terms. It depicts the enrichment scores (e.g. p-adj values) and gene count or ratio as bar height and colour.
 
 ```{r, fig.height = 7, fig.width = 6}
 barplot(ego.up, 
@@ -686,7 +686,7 @@ The authors acknowledge bioinformatics support and advanced computing resources 
 
 # Knit your document
 
-If you want to knit this .Rmd file to and HTML file, click Knit > Knit to HTML. You will then need to copy the HTML file from Nimbus to your local computer.
+If you want to knit this `.Rmd` file to and HTML file, click Knit > Knit to HTML. You will then need to copy the HTML file from Nimbus to your local computer.
 
 # Transfer your html document to local computer
 
