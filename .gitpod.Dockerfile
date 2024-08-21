@@ -14,7 +14,7 @@ RUN R -e "install.packages(c('RColorBrewer', 'ggplot2', 'dplyr', 'pheatmap', 'gg
 RUN R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager'); \
           BiocManager::install(c('DESeq2', 'biomaRt', 'org.Mm.eg.db', 'clusterProfiler'))"
 
-# Set the default working directory for RStudio
+# Set the default working directory for RStudio sessions
 RUN echo "setwd('/workspace/rna-differential-expression-Rnotebook')" > /home/rstudio/.Rprofile
 
 # Expose the RStudio Server port

@@ -16,13 +16,14 @@ tasks:
       echo "$USERNAME:$PASSWORD" | sudo chpasswd
       sudo usermod -aG sudo $USERNAME
 
+      # Change to the directory containing your data
+      cd /workspace/rna-differential-expression-Rnotebook
+
       # Start RStudio Server
       sudo rstudio-server start
 
   - name: Open RStudio
     command: |
-      # Change to the directory containing your data
-      cd /workspace/gitpod-testing/your-data-directory && \
       # Wait for RStudio Server to start and then open it in the browser
       gp ports await 8787 && gp preview $(gp url 8787) --external
 
