@@ -2,22 +2,22 @@ image:
   file: .gitpod.Dockerfile
 
 tasks:
-  - name: Configure Workspace
+  - name: Setup RStudio Server
     init: |
-      # Set workspace idle timeout to 20 minutes
-      gp env GITPOD_WORKSPACE_IDLE_TIMEOUT=1200
-      # Create the user sih-notebook and set the password
-      sudo useradd -m -s /bin/bash sih-notebook
-      echo 'sih-notebook:coconut' | sudo chpasswd
-      sudo usermod -aG sudo sih-notebook
-      
-      # Start RStudio Server automatically
+      # Ensure environment variables for username and password are set
+      : "${USERNAME:?Need to set USERNAME}"
+      : "${PASSWORD:?Need to set PASSWORD}"
+
+      # Create the user with the provided username and password
+      sudo useradd -m -s /bin/bash $USERNAME
+      echo "$USERNAME:$PASSWORD" | sudo chpasswd
+      sudo usermod -aG sudo $USERNAME
+
+      # Start RStudio Server
       sudo rstudio-server start
-  - name: Open RStudio and Notebook
-    command: |
-      gp preview $(gp url 8787) --external
-      sleep 5  # Wait a moment for the server to start
-      rstudioapi::navigateToFile("rnaseq_DE_analysis.Rmd")
+
+  - name: Open RStudio
+    command: gp preview $(gp url 8787) --external
 
 ports:
   - port: 8787
