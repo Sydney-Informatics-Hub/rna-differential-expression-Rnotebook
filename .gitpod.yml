@@ -7,14 +7,14 @@ tasks:
       # Use a predefined username
       USERNAME=sih-notebook
 
-      # Create the user without a password
-      sudo useradd -m -s /bin/bash $USERNAME
-      sudo usermod -aG sudo $USERNAME
+      # Prompt the user to set their own password
+      echo "Please enter a password for the RStudio Server:"
+      read -s PASSWORD
 
-      # Disable RStudio Server authentication
-      echo "auth-none=1" | sudo tee -a /etc/rstudio/rserver.conf
-      echo "www-frame-origin=same" | sudo tee -a /etc/rstudio/rserver.conf
-      echo "www-verify-user-agent=0" | sudo tee -a /etc/rstudio/rserver.conf
+      # Create the user with the provided password
+      sudo useradd -m -s /bin/bash $USERNAME
+      echo "$USERNAME:$PASSWORD" | sudo chpasswd
+      sudo usermod -aG sudo $USERNAME
 
       # Start RStudio Server
       sudo rstudio-server start
