@@ -14,8 +14,8 @@ RUN R -e "install.packages(c('RColorBrewer', 'ggplot2', 'dplyr', 'pheatmap', 'gg
 RUN R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager'); \
           BiocManager::install(c('DESeq2', 'biomaRt', 'org.Mm.eg.db', 'clusterProfiler'))"
 
-# Set the default working directory for RStudio sessions
-RUN echo "setwd('/workspace/rna-differential-expression-Rnotebook')" > /home/rstudio/.Rprofile
+# Set the default working directory to the mounted Gitpod workspace
+WORKDIR /workspace/rna-differential-expression-Rnotebook
 
 # Expose the RStudio Server port
 EXPOSE 8787
