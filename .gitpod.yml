@@ -16,9 +16,6 @@ tasks:
       echo "$USERNAME:$PASSWORD" | sudo chpasswd
       sudo usermod -aG sudo $USERNAME
 
-      # Change to the directory containing your data
-      cd /workspace/rna-differential-expression-Rnotebook
-
       # Start RStudio Server
       sudo rstudio-server start
 
