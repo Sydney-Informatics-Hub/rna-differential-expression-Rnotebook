@@ -11,9 +11,10 @@ tasks:
       sudo useradd -m -s /bin/bash $USERNAME
       sudo usermod -aG sudo $USERNAME
 
-      # Configure RStudio Server to disable authentication
-      sudo sed -i '/^#auth-none=0$/a auth-none=1' /etc/rstudio/rserver.conf
-      sudo sed -i '/^#www-frame-origin/s/^#//' /etc/rstudio/rserver.conf
+      # Disable RStudio Server authentication
+      echo "auth-none=1" | sudo tee -a /etc/rstudio/rserver.conf
+      echo "www-frame-origin=same" | sudo tee -a /etc/rstudio/rserver.conf
+      echo "www-verify-user-agent=0" | sudo tee -a /etc/rstudio/rserver.conf
 
       # Start RStudio Server
       sudo rstudio-server start
