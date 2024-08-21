@@ -21,6 +21,8 @@ tasks:
 
   - name: Open RStudio
     command: |
+      # Change to the directory containing your data
+      cd /workspace/rna-differential-expression-Rnotebook && \
       # Wait for RStudio Server to start and then open it in the browser
       gp ports await 8787 && gp preview $(gp url 8787) --external
 
