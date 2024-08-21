@@ -6,13 +6,7 @@ This notebook requires a number of packages. You can execute it with our [RStudi
 
 # Quickstart
 
-1. Clone this repository: 
-
-```
-git clone https://github.com/Sydney-Informatics-Hub/rna-differential-expression-Rnotebook.git
-```
-
-2. Open the Rmd file in RStudio. 
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/Sydney-Informatics-Hub/rna-differential-expression-Rnotebook)
 
 # Acknowledgements 
 
