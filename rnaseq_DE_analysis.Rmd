@@ -1,0 +1,692 @@
+---
+title: "Day 2: Counts to Differentially Expressed Genes and Functional Enrichments"
+date: "Oct 2023"
+output:
+  html_document:
+  toc: yes
+---
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+## Introduction
+
+The code in this `Rmarkdown (.Rmd)` document performs differential expression (DE) and enrichment analysis. It was used in Part 2 of the workshop [Introduction to RNAseq workshop: reads to differential gene expression](https://sydney-informatics-hub.github.io/rnaseq-workshop-2023/). This code expects analysis ready raw counts as inputs. Raw counts can be generated using [nf-core/rnaseq](https://nf-co.re/rnaseq/3.12.0) as we did on Part 1 of the workshop.
+
+__How to use this file:__
+
+- Click the green play arrows at the top right of each grey box, to run the chunk of R code within 
+- Challenge questions are enclosed in **double stars**. Feel free to add your own notes (Anywhere outside the grey boxes)
+- During the code-along sessions, we may ask you to type code into the Console. This will allow us to inspect our data without large outputs appearing in our .Rmd file
+- At the end of this workshop, you will be able to knit this document to HTML and save it for your records
+
+## Start code excecution
+
+### Load the R-libraries
+
+Load all the R libraries below.
+
+```{r}
+suppressMessages({
+library("DESeq2")
+library("RColorBrewer")
+library("ggplot2")
+library("dplyr")
+library("pheatmap")
+library("biomaRt")
+library("org.Mm.eg.db")
+library("clusterProfiler")
+library("ggnewscale")
+})
+```
+
+### Import the count matrix file
+
+The input count matrix file contains raw (not normalised) counts for every gene (rows, i) in the mouse reference assembly (mm10) and every sample (columns, j). The value in the i-th row and the j-th column of the matrix tells how many raw reads were assigned to gene i in sample j.
+
+We created a count matrix file with subsetted data in Part 1 of this workshop using nf-core/rnaseq (`salmon.merged.gene_counts.tsv`). In Part 2, we will use a count matrix file produced from the full dataset (including more descriptive sample identifiers), in order to have enough data to perform functional enrichment analysis. 
+
+Load the count matrix file and format the data frame:
+
+```{r}
+# Read in the full count matrix file
+# This file was included in the data we downloaded for Part 1
+counttable_raw <- read.delim("Full_count_matrix.txt", 
+                                header = T, 
+                                row.names = 1)
+
+# Data format is very important to ensure that functions read and analyse data correctly! The loaded count matrix is not in the exact format as required by the functions used later in the analysis. So we perform the following steps:
+
+# 1. Put gene symbol in the first column
+counttable <- counttable_raw[,c("Symbol","WT1","WT2","WT3","KO1","KO2","KO3")]
+
+# 2. We don't need the Ensembl IDs (rownames) - get rid of the rownames
+row.names(counttable) <- NULL
+
+# 3. Make the gene symbol column rownames instead
+rownames(counttable) <- counttable$Symbol
+counttable <- counttable[,c("WT1","WT2","WT3","KO1","KO2","KO3")]
+
+# Remove the hash from the next line to view the count table dataframe
+#View(counttable)
+```
+
+We now have our count matrix file (genes - rows, samples - columns) ready for analysis.
+
+### Experimental design metadata
+
+DE requires some metadata that tells our R libraries about the experimental design of the study, so that it knows how to handle the data. In this analysis, we have two experimental groups, the wildtype ("Wild") and the knockout ("KO") groups.
+
+
+We will create and store this metadata in a specific format required by the R libraries that we will use later. The samples are in rows (sample IDs as rownames), and columns are the experimental groupings. You can have more than one column, but need a minimum of one that describes your experimental groups. 
+
+```{r}
+# Define a condition variable, ensuring they match the order of sample IDs in counttable
+condition = c("Wild","Wild","Wild","KO","KO","KO")
+
+# Create a dataframe called meta with condition and sample IDs as rownames (taken from counttable)
+meta <- data.frame(row.names = colnames(counttable), condition)
+
+# Remove the hash from the next line to view the meta dataframe
+#View(meta)
+```
+
+## Exploratory analysis
+
+Before performing any DE analysis, it is good to explore and visualise our data. This helps us to understand and get a sense of the quality of our data at this stage of the analysis.
+
+**Work through the code and challenge questions. This will be followed by the presenter discussing the results**
+
+### Total library size
+
+For each sample, check the total library size. This is essentially the total number of aligned reads in each sample. 
+
+```{r}
+# Sum raw gene counts for each sample (each column)
+colSums(counttable)
+```
+**How do you think the differences in total library size could affect DE analysis?**
+
+### Raw data distribution
+
+Here we plot a boxplot of gene level raw counts (y axis) for each sample (x axis). 
+
+```{r}
+boxplot(counttable,
+        col = "red")
+```
+**How would you describe what you are seeing in the plot?**
+
+```{r}
+# Add 1 to make sure all values are > 0
+boxplot(log2((counttable) +1),
+        col = "red")
+```
+
+The distribution of counts across samples is not comparable (although not too dissimilar in this case). This is a consideration to take if you plan to use any statistical tests which is - assume an equal distribution of counts across samples.
+
+### DESeq2
+
+The DESeq2 package contains functions that perform normalisation, data transformation, visualisation and DE. This is a highly regarded and popular tool. We will use some of its functions to perform exploratory analysis.
+
+This is a large package and we will only scratch the surface of key concepts in this workshop. We recommend you read the DESeq2 paper and manual before performing your own analysis. 
+
+- [The original DESeq 2 paper, Love et al. (2014)](https://doi.org/10.1186/s13059-014-0550-8)
+- [The DESeq2 manual](http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)
+- [A beginners guide (written by the DESeq2 authors)](https://bioc.ism.ac.jp/packages/2.14/bioc/vignettes/DESeq2/inst/doc/beginner.pdf) 
+
+### Experimental design and the DESeqDataSet object
+
+In order for DESeq2 to perform DE, we need to store data in a DESeqDataSet object (dds) which contains:
+
+- Our count matrix file
+- Our experimental information (“meta”) file
+- Our design formula
+
+For exploratory analysis, we set design = ~ 1 which tells DESeq2 to be blind to experimental groups. We do not want DESeq2 to account for any within group variability during exploratory analysis and quality checking. This will allow us to observe for any unexpected batch effects. 
+
+We will spend more time understanding the dds object later in this workshop.
+
+```{r}
+# We will call this object by name 'dds' as this is a standard practice
+dds <- DESeqDataSetFromMatrix(countData = counttable, 
+                              colData = meta, 
+                              design = ~1)
+```
+
+### Data transformation
+
+Count data is transformed with regularised log (rlog) or variance stabilising transformation (vst), required before performing exploratory data analysis such as visualisation and clustering (e.g. PCA). Both methods produce data on the log2 scale, and normalise for other factors such as library size.  
+
+rlog performs slightly better, but can take a lot longer than vst if you have many samples. We will set `blind = TRUE` so that DESeq2 is blind to experimental groups, for the same reasons as previously described.
+
+```{r}
+# Calculate rlog and store it in a dds-like object
+rlog <- rlog(dds, blind = TRUE)
+rlog.data <- assay(rlog)
+```
+
+We can check the effect of transformation by again using boxplots. 
+
+```{r}
+boxplot(rlog.data,
+        col = "red")
+```
+
+Notice that the count distribution across samples is much more comparable with rlog transformed data.
+
+### Principal component analysis
+
+Principal component analysis (PCA) is a dimensionality reduction method that summaries high dimensionality data into a number of principal components (PCs). For RNA-Seq, our highly dimensional data is our per sample gene-expression data and the variance that exists across samples. We can observe the relationship between these in a 2D space, by plotting two components at a time (usually the top two that account for most of the variance). 
+
+Create a PCA plot using rlog transformed data. By default, DESeq2::plotPCA() will colour each dot by the sample's experimental group, but we have included some additional code to remove these for our discussion :-). 
+
+```{r}
+# DESeq2's plotPCA function will create a PCA plot using an object that has rlog or vst values
+pcaData <- plotPCA(rlog, returnData=TRUE)
+
+# Convert to percentages
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+# Plot table
+ggplot(pcaData, aes(PC1, PC2)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  coord_fixed()
+```
+**Each dot represents one sample. Samples that appear closer together have a more similar gene expression profile. Can you speculate which samples belong to the same experimental group?**
+
+Let's recreate the plot, now colouring samples by their experimental group.
+
+```{r}
+# DESeq2's plotPCA function will create a PCA plot using an object that has rlog or vst values
+DESeq2::plotPCA(rlog)
+```
+
+**Can you comment on how the samples cluster together in the plot?**
+**If you saw one red dot cluster more closely with the blue dots, what might this suggest?**
+**Apart from experimental groups, what other relationships might be revealed when looking at PCA plots?**
+**How much of the overall variance is explained by PC1 & PC2?**
+
+Plotting the other PCs is something you may want to do until you have explored most of the variation in the dataset and what their potential sources might be. We will not have time to cover this in the workshop, but do recommend you look into other plots such as `scree plots` and observing the genes contributing to each PC.
+
+#### Sample-to-sample distances heatmap
+
+Another way to visualise how similar or dissimilar our samples are is to plot sample distances in a heatmap and a hierarchical cluster. 
+
+```{r}
+# dist() calculates eucleadean distance, which requires data to be in a specific format
+sampleDists <- dist(t(assay(rlog)))
+sampleDistMatrix <- as.matrix(sampleDists)
+
+# Get some pretty blue colours
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+
+# Plot the sampleDistMatrix in a heatmap
+# pheatmap also calculates and plots hierachical clusters 
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         col = colors)
+```
+
+Dark blue indicates samples that are more similar (distance = 0). 
+
+**What do you notice about sample KO3?**
+
+## Differential expression analysis
+
+We are happy with what we have observed in our exploratory analysis and are finally ready to start DE analysis.
+
+### Experimental design
+
+In order for DESeq2 to perform DE, we need to revisit the DESeqDataSet object (`dds`), this time telling it our experimental design. In our case, this will be the column “condition”, taken from “meta”. 
+
+Note: design formulas can be much, much more complex! This gives you the power to model and account for other variation (e.g. you could model batch effects using something like ~ condition + batch)
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = counttable,
+                              colData = meta,
+                              design = ~ condition)
+```
+
+**Let's stop here and take some time to understand dds. In the RStudio console, type in the code below:**
+
+`dds`
+
+- Notice dim - can you tell from this how many genes are are analysing?
+
+`counts(dds)`
+
+- This extracts the count matrix out of dds
+
+`colData(dds)`
+
+- This extracts our experimental design metadata out of dds
+
+`design(dds)`
+
+- This extracts our design formula out of dds
+
+### Explicitly set the factors levels 
+
+When we perform differential expression and interpret the results, we want to see what changed in the knockout mice (“treatment”) compared to the wildtype mice (“control”) - not the other way around! 
+
+The experimental design information in dds is stored as a factor in R (check by running `class(dds$condition)` - without the backslash). By default, R will choose a reference level for factors based on alphabetical order. That means, the knockout group is currently our baseline (check by typing in the console: `dds$condition`, without the backslash).
+
+Note: the backslashes are required to escape the "$" as they are interpreted differently in Markdown vs R.
+
+We will need to explicitly set "Wild" as the baseline level for easier interpretation of results.
+
+```{r}
+# Set Wild to base level, using relevel
+dds$condition <- relevel(dds$condition, "Wild")
+
+# Check that Wild appears as the first level
+dds$condition
+```
+
+## Differential expression (DE) analysis
+
+Before we commence with DE, there are some key concepts that you should know. 
+
+- Each sample is sequenced to a slightly different depth and this needs to be __normalised__ (if we have 60 million reads for sample A but 30 million for sample B, it does not mean that all of sample A's genes are expressed twice as high!). The same concept applies to genes of different lengths.
+- RNA-Seq data count data is distributed in a heteroskedatic manner - in other words, the amount of variance changes with the mean. Lowly expressed genes tend to have a higher read count variance than highly expressed genes. This violates the assumption of most statistical models which assume homoskedatic data. Therefore, the data needs to be __transformed__. 
+- Differential expression tests are performed for every single gene. If we use a simple P < 0.05 cut-off value, 1,000 genes will be defined as DE by chance for a species with ~20,000 genes (humans and mice). Therefore, we need to __reduce and adjust for multiple testing__.
+
+All DE methods account for the above in their own way. In this workshop, we will use and explore DESeq2's method. 
+
+### The DESeq() function
+
+We are finally ready to perform DE analysis with DESeq2’s DESeq() function. This performs a number of steps required to perform DE - the console output gives you a clue as to what these steps are doing. 
+
+
+```{r}
+# Perform DE and store the results back in the dds object
+dds <- DESeq(dds)
+# Save the results to res
+res <- results(dds)
+```
+
+In brief, by default, DESeq2 is:
+
+- estimating size factors (i.e. total library size), required to __normalise data__. DESEq2 uses the median of ratios method. There are many other normalisation methods, each with their pros and cons, and each to be used and interpreted differently. 
+- __transforming the data__ by estimating dispersion (DESeq2's way of quantifying within group variability). DESeq2 uses a negative binomial distribution model.
+- performing __independent filtering__ to reduce the number of statistical tests to perform. DESeq2 will automatically do this. A common method to do this is by removing lowly expressed genes as these don't have enough data confidently test for DE (DESeq2 actually recommends this to also reduce the size and memory required by DESeq())
+
+### Inspecting the results
+
+Get a summary of results by running the code below. 
+
+```{r}
+summary(res)
+```
+Order by the smallest adjusted p value, and have a look at the top 5/bottom 5 DE genes:
+
+```{r}
+res <- res[order(res$padj), ]
+res
+```
+
+From the above, we can see that DE was performed for KO vs Wild samples for 19,859 genes and 6 columns (6 samples). We then see a table of DE results. The column headers include:
+
+- __baseMean__: this is an average of the normalised count values, dividing by size factors, taken over all samples. This gives you a general idea of how many reads were detected over all samples present for any one gene.
+- __log2FoldChange__: This measures the magnitude of differential expression of a gene. A positive value indicates that the KO expression was higher than Wild (remember the fuss about setting factor levels?). This number is on the logarithmic scale to base 2, e.g. log2 fold change of 1.5 means that the gene's expression is increased by 2^1.5 = 2.82 times. 
+- __lfcSE__: this is the standard error of the log2FoldChange estimate
+- __stat__: Wald statistic
+- __p-value__: Wald test p-value
+- __padj__: p-value adjusted for __multiple testing__. This is sometimes referred to as the false discovery rate or FDR. By default, DESeq2 performs this with the Benjamini Hochberg method. Note - DESeq2 will report "NA" (not available) values if multiple testing was not applied for this gene, usually because the counts for these gene were too low or the gene was an extreme outlier. 
+
+### Defining significance
+
+Differentially expressed genes are usually defined by cut-offs for two metrics, which are the adjusted p-value and the fold change value. We commonly see differential expression defined as genes with:
+
+- adjusted p-value of < 0.05 (sometimes < 0.1)
+- fold change of 2 (log2 fold change = 1)
+
+This is somewhat arbitrary - we need to have just the right number of differentially expressed genes to perform functional enrichment analysis (around 100 - 3,000 is a general guide). Gene expression should be thought of in a biological context - we care about the "top" most differentially expressed genes.
+
+### Subset the data and write out results
+
+Here we will use padj < 0.05 as our cut-off value for significance and use these genes for enrichment analysis.
+
+```{r}
+# Redefine the significance cut-off used for independent filtering (default = 0.1). 
+# This should be done if we want to use p adj to a value other than 0.1 
+res_padj0.05 <- results(dds, alpha = 0.05)
+
+# Subset the results and write these to an output file
+resSig005_subset <- subset(res_padj0.05, padj < 0.05)
+write.table(resSig005_subset, 
+            "res_DeSeq2_FDR0.05_comparison_Wild_vs_KO_FUllMatrix.tab", 
+            sep = "\t", 
+            col.names = NA, 
+            quote = F)
+
+# Reformat the output results into a data.frame
+resSig005_subset <- data.frame(genes = row.names(resSig005_subset), resSig005_subset)
+
+# We can also order padj-filtered results by log fold change
+resSig005_subset_lfc <- resSig005_subset[order(resSig005_subset$log2FoldChange), ]
+
+# Notice how our summary of results has changed slightly now
+summary(res_padj0.05)
+```
+
+Normalised count data can be used for visualisation/other analyses. The code below extracts and prints normalized counts to file.
+
+```{r}
+# Extract normalised counts from dds
+normalised_counts <- counts(dds, normalized = TRUE)
+
+# Save normalised counts (tab separated) to file
+write.table(normalised_counts, 
+            "normalised_all_samples_DeSeq2_FullMatrix.tab", 
+            sep = "\t", 
+            col.names = NA, 
+            quote = F)
+```
+
+### Visualise results
+
+#### Volcano plot
+
+The volcano plot is a scatterplot that shows magnitude of change (fold change, x axis) against statistical significance (p-value, y axis). It provides an overall visual snapshot of the number of up and downregulated genes that are statistically significant. 
+
+```{r}
+# Create a basic volcano plot (scatter plot) with x axis = LogFC, y axis = -log10(pvalue)
+resdata <- as.data.frame(res)
+
+# Define whether genes are significantly DE or not and store this in a new column called DE
+resdata$Significant <- "No"
+resdata$Significant[resdata$log2FoldChange > 1 & resdata$pvalue < 0.05 ] <- "Upregulated"
+resdata$Significant[resdata$log2FoldChange < -1 & resdata$pvalue < 0.05 ] <- "Downregulated"
+
+# Create the volcano plot
+p <- ggplot(data=resdata,aes(x=log2FoldChange, y=-log10(pvalue), col=Significant)) + geom_point()
+
+# Add significance lines at log2FoldChange -1, 1 and pvalue 0.05
+p2 <- p + geom_vline(xintercept=c(-1, 1), col = "red") +
+    geom_hline(yintercept=-log10(0.05), col = "red")
+
+# Print the plot
+p2
+```
+
+### Visualise some DE genes
+
+We have applied low read-count filtering followed by appropriate statistical tests using the DESeq2 package for identification of the differentially expressed geens across our conditions of interest.
+
+However we recommend that you visualise a few genes (of specific interest or otherwise) to check if the identification of these genes is supported by sufficient read-counts. 
+
+Use plotCounts function to plot normalised counts for a single gene of interest. Here we plot 
+```{r}
+plotCounts(dds, 
+           gene="Dip2b", 
+           intgroup="condition")
+```
+
+**Choose a significant gene that is downregulated in the knockout mice. Enter the plotCounts code in the grey box below to plot the normalised counts for each sample for the gene you have chosen.**
+
+### Diagnostic plots
+
+Before we get too excited about our results, we need to confirm that DESeq2's assumptions were met and that statistical analysis was performed appropriately. We will explore a few plots and concepts to better understand what is happening under the hood.
+
+#### MA plot
+
+The MA plot provides an overview of the relationship between significantly differentially expressed genes, gene expression and log fold change in the form of a scatter plot. Each dot on the plot represents a single gene, significant genes are coloured as a blue dot. The average gene expression is on the x axis (expressed as a mean of normalised counts) and the log fold change is on the Y axis. 
+
+```{r}
+# There is another R function called plotMA, so we need to specify to use DESeq2's plotMA
+DESeq2::plotMA(res, ylim = c(-12, 12))
+```
+
+There are a few things we notice:
+
+- genes with a lower mean expression have higher variable log fold changes (heteroskedatic - as we expected)
+- that gene expression is symmetrical around log fold change 0. 
+
+The above describe the expected characteristics of an MA plot - if you have something that looks different, you will need to investigate further and confirm you have no unwanted technical/biological artefacts skewing the results.
+
+#### Dispersion estimates
+
+The dispersion plot is useful to examine whether your data is meeting DESeq2's assumptions around heteroskedasticity and that the data fits DESeq2's model well.  Dispersion is how DESeq2 quantifies variability in the data. It considers variance and mean expression within each experimental group. 
+
+Let's use `plotDispEsts()` to generate the dispersion plot and discuss what this means.
+
+```{r}
+# Plot dispersion estimates using dds
+# Note - we have set our experimental design to ~ condition and it is using this to estimate dispersion
+plotDispEsts(dds)
+```
+
+There are a few things to note:
+
+- Dispersion is higher for genes with small mean of normalized counts, and lower for genes with high mean of normalised counts. If you see any other trend, this is a sign that you should not trust DESeq2's results and that you need to investigate further
+- To transform the data, we need to use the variation observed within each experimental group. We cannot do this accurately with few biological replicates (e.g n =3 for KO, n = 3 for wildtype). DESeq2 assumes that genes with similar expression have a similar level of dispersion to get a more accurate estimation of variability - one of its many benefits! A model (the red curve) is calculated by DESeq2 with this information, using a method called shrinkage. In other words, the red line represents the expected dispersion for any given level of expression
+- The black dots represent each gene and their own dispersion (using within group variance as described above)
+- The gene-wise dispersion estimate (black dots) need to be shrunken towards the red line. This helps to reduce false positive results in our differential expression analysis
+
+There is a lot happening here, but the main point is that our dispersion plot looks as expected and plots should generally appear like this. Check this [website](https://hbctraining.github.io/DGE_workshop/lessons/04_DGE_DESeq2_analysis.html) for a deeper explanation of this concept, and for examples of what bad dispersion plots look like.
+
+
+#### Histogram of p-values
+
+Remember that for every gene, we perform a statistical test to determine whether gene expression is significantly different in the knockout samples, compared to the wildtype. This results in thousands (~20,000 genes in the mouse genome) of p-values. We can look at the histogram of p-values to see how our well our statistical test behaves before we apply correction for multiple testing. 
+
+```{r}
+# Bin frequency of p-value counts by 0.05 incremets (i.e plot 20 columns from p-value of 0 to 1)
+hist(res$pvalue, 
+     breaks = 20, 
+     col = "grey")
+```
+
+A nice histogram of p-values will have a peak at the 0.05 end, and a uniform frequency at all other p-value bins. Think back to your null and alternate hypothesis. Under the null hypothesis, there is a 5% chance of genes will fall under p-value 0.05, 10 % for p-value under 0.1, etc. The high peak at the first bin (p-value 0 - 0.5) represents genes that reject the null hypothesis (in addition to all the false discoveries - hence our need to adjust for multiple testing!).
+
+A histogram of p-values that looks anything other than what is described above means that something weird has happened and you may need to contact your local statistician/bioinformatician. 
+
+This [blog post](http://varianceexplained.org/statistics/interpreting-pvalue-histogram/) has a nice explanation of each scenario if you want to explore this further. 
+
+## Functional enrichment analysis 
+
+We now have a list of significant DE genes. To gain greater biological insights on the DE genes we can determine if there is enrichment of known biological functions, pathways or interactions.
+
+There are different methods for identifying functional enrichments, e.g.:
+
+  - __Over representation analysis (ORA)__ 
+  In ORA methods, we first identify a list of differentially expressed (DE) genes by applying an arbitrary statistical cutoff of say padj<0.05, similar to what we have done today. The list of DE genes are then grouped into specific categories such as gene ontology, pathways etc and these groups are checked for enrichment probability against the total number of genes belonging to the same category from the genome of the organism of interest, and check statistical significance.
+
+  - __Gene set enrichment analysis (GSEA)__
+  GSEA methods work on the premise that not only can large changes in individual genes have significant effects on functional categories such as gene ontolgies/pathways (as detected using ORA methods), but the weaker but coordinated changes in sets of functionally related genes can also be of high significance. GSEA methods do not use a set an arbitrary thresholds to identify ‘significant genes’ but rather use all genes for enrichment analysis. You can read more about the GSEA method at https://www.gsea-msigdb.org/gsea/index.jsp
+  
+Enrichment analysis can be done using both-  freely available web-tools or R-based tools. Today we will use a R-package "clusterprofiler" to perform Over representation analysis (ORA) against the category gene ontology. 
+
+ 
+### Gene ontology (GO) enrichment
+
+One of the most widely-used categories is Gene Ontology (GO) established by the Gene Ontology project. To describe the functional roles of genes and gene products, they are categorised into GO terms. GO terms are organised into three independent controlled vocabularies (ontologies) in a species-independent manner:
+  - __Biological process__: Refers to the biological role involving the gene or gene product, and could include “transcription”, “signal transduction”, and “apoptosis”. A biological process generally involves a chemical or physical change of the starting material or input.
+  - __Molecular function__: Represents the biochemical activity of the gene product, such activities could include “ligand”, “GTPase”, and “transporter”.
+  - __Cellular component__: Refers to the location in the cell of the gene product. Cellular components could include “nucleus”, “lysosome”, and “plasma membrane”.
+
+GO enrichment analysis tools will determine GO terms that are enriched when you supply it will a list of DE genes.
+
+### clusterProfiler R-package
+
+The clusterProfiler package implements methods to analyse and visulised functional profiles of genes. The clusterProfiler R-library supports functional characteristics of both coding and non-coding genomics data for thousands of species with up-to-date gene annotation. It provides a tidy interface to access, manipulate, and visualise enrichment results to help users achieve efficient data interpretation.
+
+### Prepare the DE gene results for enrichment analysis
+
+We will use clusterProfiler to perform enrichment analysis for upregulated and downregulated significant DE genes separately. We can use the `resSig005_subset_lfc` dataframe created earlier and prepare the data for clusterProfiler.
+
+```{r}
+# We will use the resSig005_subset_lfc dataframe created earlier
+# This has been filtered for padj < 0.05 and |LFC| > 1 DE genes
+
+# Upregulated genes
+# Filter for significant upregulated genes by log2 fold change > 1. Remove NAs.
+sig.up <- resSig005_subset_lfc[resSig005_subset_lfc$log2FoldChange > 1, ]
+sig.up <- na.omit(sig.up)
+
+# Create list by decreasing log fold change for upregulated genes
+sig.up.LFC <- sig.up$log2FoldChange
+names(sig.up.LFC) <- rownames(sig.up)
+
+# Sort by LFC, decreasing
+sig.up.LFC <- sort(sig.up.LFC, decreasing = TRUE)
+
+# Downregulated genes - let's do the same thing
+sig.dn <- resSig005_subset_lfc[resSig005_subset_lfc$log2FoldChange < -1, ]
+
+# Filter for significant upregulated genes by log2 fold change < -1. Remove NAs.
+sig.dn <- na.omit(sig.dn)
+
+# Create list by decreasing log fold change for upregulated genes
+sig.dn.LFC <- sig.dn$log2FoldChange
+names(sig.dn.LFC) <- rownames(sig.dn)
+
+# Sort by LFC, decreasing
+sig.dn.LFC <- sort(sig.dn.LFC, decreasing = TRUE)
+```
+
+**You can check that you have correctly prepared the data by inspecting sig.up.LFC and sig.dn.LFC in the console. Use class() to check what type of R class we have stored the data in.**
+
+### GO enrichment of upregulated genes
+
+clusterprofiler implements the function enrichGO() for gene ontology over-representation test. Let's run the analysis for up-regulated genes.
+
+You can check what the different parameters in the function do by running the command `?enrichGO`. The command will take a few minutes to run.
+
+```{r}
+ego.up <- enrichGO(gene = names(sig.up.LFC),
+                   OrgDb = org.Mm.eg.db, 
+                   keyType = 'SYMBOL',
+                   readable = FALSE,
+                   ont = "ALL",
+                   pAdjustMethod = "BH",
+                   pvalueCutoff = 0.05, 
+                   qvalueCutoff = 0.05)
+
+```
+
+#### Bar plot of upregulated enriched GO terms
+
+The bar plot is a commonly used method to visualise enriched terms. It depicts the enrichment scores (e.g. p-adj values) and gene count or ratio as bar height and colour.
+
+```{r, fig.height = 7, fig.width = 6}
+barplot(ego.up, 
+        showCategory = 20)
+```
+
+#### Dot plot of upregulated enriched GO terms
+
+A dot plot is similar to a scatter plot and bar plot with the capability to encode another score as dot size. In R the dot plot displays the index (each category) in the vertical axis and the corresponding value in the horizontal axis, so you can see the value of each observation following a horizontal line from the label.
+
+```{r, fig.height = 6, fig.width = 7}
+dotplot(ego.up, 
+        showCategory = 20,
+        font.size = 8)
+```
+
+#### cnetplot of upregulated enriched GO terms
+
+Both the barplot and dotplot only displayed most significant enriched terms, while users may want to know which genes are involved in these significant terms. The cnetplot depicts the linkages of genes and biological concepts (e.g. GO terms or KEGG pathways) as a network.
+
+```{r, fig.height = 5, fig.width = 8}
+cnetplot(ego.up, 
+         categorySize = "pvalue", 
+         foldChange = sig.up.LFC,
+         cex_label_gene	= 0.7,
+         showCategory = 5,
+         cex_label_category = 1.2,
+         shadowtext = 'category')
+
+
+```
+
+#### Heatmap-like functional classification of upregulated enriched GO terms
+
+The heatplot is similar to cnetplot, while displaying the relationships as a heatmap. The gene-concept network may become too complicated if user want to show a large number significant terms. The heatplot can simplify the result and more easy to identify expression patterns.
+
+```{r, fig.height=7, fig.width=15}
+heatplot(ego.up,
+         showCategory = 20,
+         foldChange = sig.up.LFC)
+```
+
+### GO enrichment of downregulated genes
+
+**Additional task: Try re-doing the above steps for downregulated genes. Please remember to rename the variable differently (e.g. ego.dn instead of ego.up ) so as to not over-write them***
+
+This will be a good time to familiarise yourself with the various functions you have used. Remember, you can try and run ?Function_NAME e.g. ?enrichGO to get the help manual pages for that function. You can play with pvalue and qvalue cutoffs, categories etc. Try and interpret the results. We will discuss them at the end of this session.
+
+
+#### Other enrich functions in clusterprofiler
+
+ClusterProfiler has other functions:
+ 
+  - enrichKEGG       KEGG
+  - enrichWP         WikiPathways
+  - enrichPathway    Reactome
+  - enrichr          Enrichr resource  
+
+
+### Other resources for enrichment analysis
+
+#### Open source options 
+
+  - Pantherdb       http://pantherdb.org/
+  - Enrichr         https://maayanlab.cloud/Enrichr/
+  - David           https://david.ncifcrf.gov/
+  - gprofiler       https://biit.cs.ut.ee/gprofiler/
+  
+And many more ...
+  
+#### Commercial options
+
+  - Ingenuity Pathway Analysis (IPA)    https://www.qiagen.com/us/
+  - Metacore                            https://portal.genego.com/
+
+#### Interesting read
+
+Urgent need for consistent standards in functional enrichment analysis    https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009935#sec007
+
+# sessionInfo()
+
+It is good practice to record the version of R and all tools you are using for reproducibility purposes (and for the methods section in your paper!). R's sessionInfo() prints all of this information.
+
+```{r}
+sessionInfo()
+```
+
+# Authors and acknowledgement
+
+The authors of the code contained in this .Rmd document are:
+
+* Nandan Deshpande
+* Georgina Samaha
+* Tracy Chew
+
+We hope you have found it useful - you are welcome to use and modify for this for your own analysis. If you have found it helpful, please support us by acknowledging us.
+
+Suggested acknowledgement:
+
+The authors acknowledge bioinformatics support and advanced computing resources provided by the Sydney Informatics Hub, a Core Research Facility at the University of Sydney, Pawsey Supercomputing Research Centre, Queensland Cyberinfrastructure Foundation (QCIF) and Australia’s National Research Education Network (AARNet) enabled through the Australian BioCommons (NCRIS via Bioplatforms Australia).
+
+# Knit your document
+
+If you want to knit this `.Rmd` file to and HTML file, click Knit > Knit to HTML. You will then need to copy the HTML file from Nimbus to your local computer.
+
+# Transfer your html document to local computer
+
+1. Open a  terminal on you local computer. Navigate to a path of your choice.
+ 
+2. Run the following command in the terminal on your local computer (make sure to replace the IP address with your own)
+
+  ```
+  scp training@146.118.XX.XXX:{PATH_TO_DOCUMENT}/RNASeq_Part2_*.html ./
+  ```  
+ 
+3. Open the html document using a local browser such as Chrome.
+
