@@ -4,17 +4,16 @@ image:
 tasks:
   - name: Setup RStudio Server
     init: |
-      # Ask the user to set their own password
-      echo "Please enter a password for RStudio Server:"
-      read -s PASSWORD
-      
       # Use a predefined username
       USERNAME=sih-notebook
 
-      # Create the user with the provided password
+      # Create the user without a password
       sudo useradd -m -s /bin/bash $USERNAME
-      echo "$USERNAME:$PASSWORD" | sudo chpasswd
       sudo usermod -aG sudo $USERNAME
+
+      # Configure RStudio Server to disable authentication
+      sudo sed -i '/^#auth-none=0$/a auth-none=1' /etc/rstudio/rserver.conf
+      sudo sed -i '/^#www-frame-origin/s/^#//' /etc/rstudio/rserver.conf
 
       # Start RStudio Server
       sudo rstudio-server start
@@ -22,7 +21,7 @@ tasks:
   - name: Open RStudio
     command: |
       # Wait for RStudio Server to start and then open it in the browser
-      gp await-port 8787 && gp preview $(gp url 8787) --external
+      gp ports await 8787 && gp preview $(gp url 8787) --external
 
 ports:
   - port: 8787
