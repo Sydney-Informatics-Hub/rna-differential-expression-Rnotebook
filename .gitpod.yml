@@ -4,11 +4,14 @@ image:
 tasks:
   - name: Setup RStudio Server
     init: |
-      # Ensure environment variables for username and password are set
-      : "${USERNAME:?Need to set USERNAME}"
-      : "${PASSWORD:?Need to set PASSWORD}"
+      # Ask the user to set their own password
+      echo "Please enter a password for RStudio Server:"
+      read -s PASSWORD
+      
+      # Use a predefined username
+      USERNAME=sih-notebook
 
-      # Create the user with the provided username and password
+      # Create the user with the provided password
       sudo useradd -m -s /bin/bash $USERNAME
       echo "$USERNAME:$PASSWORD" | sudo chpasswd
       sudo usermod -aG sudo $USERNAME
@@ -17,7 +20,9 @@ tasks:
       sudo rstudio-server start
 
   - name: Open RStudio
-    command: gp preview $(gp url 8787) --external
+    command: |
+      # Wait for RStudio Server to start and then open it in the browser
+      gp await-port 8787 && gp preview $(gp url 8787) --external
 
 ports:
   - port: 8787
