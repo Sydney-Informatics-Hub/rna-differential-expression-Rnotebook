@@ -51,7 +51,7 @@ Load the count matrix file and format the data frame:
 ```{r}
 # Read in the full count matrix file
 # This file was included in the data we downloaded for Part 1
-counttable_raw <- read.delim("Full_count_matrix.txt", 
+counttable_raw <- read.delim("./data/count_matrix.txt", 
                                 header = T, 
                                 row.names = 1)
 
