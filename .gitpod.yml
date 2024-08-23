@@ -23,10 +23,14 @@ tasks:
     command: |
       # Wait for RStudio Server to start
       gp ports await 8787 && \
+      # Set the working directory explicitly
+      R -e "setwd('/workspace/rna-differential-expression-Rnotebook')" && \
       # Open the RStudio in the browser
       gp preview $(gp url 8787) --external && \
-      # Navigate to the directory containing the Rmd file and open it
-      R -e "rstudioapi::navigateToFile('/workspace/rna-differential-expression-Rnotebook/your_script.Rmd')"
+      # Open the repository in the File Viewer
+      R -e "rstudioapi::openProject('/workspace/rna-differential-expression-Rnotebook', newSession = FALSE)"
+      # Open the directory in the File Viewer
+      rstudioapi::navigateToFile('/workspace/rna-differential-expression-Rnotebook/rnaseq_DE_analysis.Rmd')
 
 ports:
   - port: 8787
