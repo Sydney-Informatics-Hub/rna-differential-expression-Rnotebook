@@ -19,12 +19,13 @@ tasks:
       # Start RStudio Server
       sudo rstudio-server start
 
-  - name: Open RStudio
+  - name: Open RStudio and Source .Rprofile
     command: |
       # Wait for RStudio Server to start
       gp ports await 8787 && \
-      # Open the RStudio in the browser
-      gp preview $(gp url 8787) --external
+      gp preview $(gp url 8787) --external && \
+      # Source the .Rprofile file
+      Rscript -e "source('/workspace/rna-differential-expression-Rnotebook/.Rprofile')"
 
 ports:
   - port: 8787
