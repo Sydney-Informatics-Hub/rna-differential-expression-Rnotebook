@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean
 
 # Install R packages
-RUN R -e "install.packages(c('RColorBrewer', 'ggplot2', 'dplyr', 'pheatmap', 'ggnewscale'), repos='http://cran.rstudio.com/')"
+RUN R -e "install.packages(c('RColorBrewer', 'ggplot2', 'dplyr', 'pheatmap', 'ggnewscale', rstudioapi), repos='http://cran.rstudio.com/')"
 
 # Install Bioconductor packages
 RUN R -e "if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager'); \
