@@ -10,7 +10,7 @@ library(rstudioapi)
 setwd("/workspace/rna-differential-expression-Rnotebook")
 
 # Open the entire repository in the File Viewer
-openProject("/workspace/rna-differential-expression-Rnotebook", newSession = FALSE)
+openProject("/workspace/rna-differential-expression-Rnotebook.Rproj", newSession = FALSE)
 
 # Optionally, open a specific RMarkdown file or script
 navigateToFile("rnaseq_DE_analysis.Rmd")
