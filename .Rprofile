@@ -1,6 +1,14 @@
 # Project-specific .Rprofile
 if (interactive()) {
 
+  # Preload rstudioapi
+  suppressMessages({
+    if (!requireNamespace("rstudioapi", quietly = TRUE)) {
+      install.packages("rstudioapi", repos='http://cran.rstudio.com/')
+    }
+    library(rstudioapi)
+  })
+
   # Set working directory
   setwd("/workspace/rna-differential-expression-Rnotebook")
 
