@@ -1,10 +1,18 @@
-FROM rocker/rstudio:4.1.2
+FROM sydneyinformaticshub/rnaseq-rstudio
 
 # Install additional system dependencies if needed
-RUN apt-get update && apt-get install -y \
-    libcurl4-gnutls-dev \
-    libxml2-dev \
+RUN apt-get update && \
+    apt-get install -y \
+    libcurl4-openssl-dev \
     libssl-dev \
+    libxml2-dev \
+    libz-dev \
+    build-essential \
+    libpng-dev \
+    libjpeg-dev \
+    libcairo2-dev \
+    libxt-dev \
+    libgfortran5 \
     && apt-get clean
 
 # Install R packages
